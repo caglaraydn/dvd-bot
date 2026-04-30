@@ -1,25 +1,25 @@
 import os
 import sys
+import logging
 
-# Gereksiz uyarıları ve urllib3 OpenSSL uyarısını en başta sustur
-os.environ['PYTHONWARNINGS'] = 'ignore'
+# Hugging Face ve Transformers uyarılarını sustur
+os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
+os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
+
 import warnings
 warnings.filterwarnings("ignore")
 
-try:
-    import urllib3
-    urllib3.disable_warnings()
-except ImportError:
-    pass
-
-from transformers import TrOCRProcessor, VisionEncoderDecoderModel
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel, logging as transformers_logging
+transformers_logging.set_verbosity_error()
 from PIL import Image
 
 def solve_captcha(image_path):
     try:
-        # Modeli yükle (İlk çalıştırmada indirilecektir)
-        processor = TrOCRProcessor.from_pretrained('anuashok/ocr-captcha-v3', use_fast=True)
-        model = VisionEncoderDecoderModel.from_pretrained('anuashok/ocr-captcha-v3')
+        model_name = 'anuashok/ocr-captcha-v3'
+        
+        # İşlemciyi ve Modeli Yükle
+        processor = TrOCRProcessor.from_pretrained(model_name)
+        model = VisionEncoderDecoderModel.from_pretrained(model_name)
 
         # Resmi yükle ve işle
         image = Image.open(image_path).convert("RGB")
@@ -35,7 +35,6 @@ def solve_captcha(image_path):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Kullanım: python3 solver.py <resim_yolu>")
         sys.exit(1)
         
     img_path = sys.argv[1]
