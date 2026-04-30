@@ -34,7 +34,13 @@ async function solveCaptchaAI(base64Image) {
         const captchaPath = path.join(__dirname, "captcha.png");
         const base64Data = base64Image.replace(/^data:image\/png;base64,/, "");
         fs.writeFileSync(captchaPath, base64Data, "base64");
-        const result = execSync(`python3 solver.py "${captchaPath}"`, {
+        
+        // Sunucuda venv kullanıldığı için venv yolunu belirtiyoruz
+        const pythonPath = fs.existsSync(path.join(__dirname, "venv", "bin", "python3")) 
+            ? "./venv/bin/python3" 
+            : "python3";
+
+        const result = execSync(`${pythonPath} solver.py "${captchaPath}"`, {
             encoding: "utf8",
         });
         return result.trim();
