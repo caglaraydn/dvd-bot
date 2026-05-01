@@ -3,3 +3,4 @@ companies.json
 node_modules/
 captcha.png
 venv/
+test_telegram.js
