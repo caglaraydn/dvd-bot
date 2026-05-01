@@ -9,6 +9,9 @@ require("dotenv").config();
 const jar = new CookieJar();
 const client = wrapper(axios.create({ jar }));
 
+// /root/.nvm/versions/node/v24.15.0/bin/node
+// /root/dvd-bot
+
 const GIB_URLS = {
     CAPTCHA: "https://dijital.gib.gov.tr/apigateway/captcha/getnewcaptcha",
     LOGIN: "https://dijital.gib.gov.tr/apigateway/auth/tdvd/login",
@@ -34,10 +37,12 @@ async function solveCaptchaAI(base64Image) {
         const captchaPath = path.join(__dirname, "captcha.png");
         const base64Data = base64Image.replace(/^data:image\/png;base64,/, "");
         fs.writeFileSync(captchaPath, base64Data, "base64");
-        
+
         // Sunucuda venv kullanıldığı için venv yolunu belirtiyoruz
-        const pythonPath = fs.existsSync(path.join(__dirname, "venv", "bin", "python3")) 
-            ? "./venv/bin/python3" 
+        const pythonPath = fs.existsSync(
+            path.join(__dirname, "venv", "bin", "python3"),
+        )
+            ? "./venv/bin/python3"
             : "python3";
 
         const result = execSync(`${pythonPath} solver.py "${captchaPath}"`, {
@@ -219,7 +224,10 @@ async function main() {
     const hasNormalKarsit = reports.some((r) => r.karsitNormal.length > 0);
     const failedOnes = reports.filter((r) => !r.success);
 
-    let title = hasUrgent ? "⚠️ <b>GÜNLÜK ÖZET</b> ⚠️" : "<b>GÜNLÜK ÖZET</b>";
+    const trMonths = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+    const now = new Date();
+    const dateStr = `${now.getDate()} ${trMonths[now.getMonth()]}`;
+    let title = hasUrgent ? `⚠️ <b>GÜNLÜK ÖZET - ${dateStr}</b> ⚠️` : `<b>GÜNLÜK ÖZET - ${dateStr}</b>`;
     let message = `${title}\n`;
 
     if (!hasTebligat && !hasUrgent && !hasNormalKarsit) {
