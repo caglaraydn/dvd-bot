@@ -119,6 +119,7 @@ async function processCompany(company) {
             );
 
             if (!loginRes.data.result) {
+                console.log(`❌ Giriş başarısız [${company.SIRKET_ADI}]:`, JSON.stringify(loginRes.data));
                 if (
                     loginRes.data.messages &&
                     loginRes.data.messages[0].text.includes("Güvenlik kodu")
@@ -200,8 +201,16 @@ async function processCompany(company) {
             console.log(`✅ ${company.SIRKET_ADI} tamamlandı.`);
             return resultData;
         } catch (err) {
-            if (attempts >= maxAttempts)
-                console.log(`🛑 ${company.SIRKET_ADI} hatası: ${err.message}`);
+            console.log(`🛑 ${company.SIRKET_ADI} hatası: ${err.message}`);
+            if (err.response && err.response.data) {
+                console.log("Hata Detayı:", JSON.stringify(err.response.data));
+            }
+
+            if (err.response && err.response.status === 400) {
+                continue;
+            }
+
+            return resultData;
         }
     }
     return resultData;
