@@ -4,6 +4,7 @@ const path = require("path");
 const { execSync } = require("child_process");
 const { wrapper } = require("axios-cookiejar-support");
 const { CookieJar } = require("tough-cookie");
+const XLSX = require("xlsx");
 require("dotenv").config();
 
 const jar = new CookieJar();
@@ -23,6 +24,8 @@ const GIB_URLS = {
     EYMM_LISTELE:
         "https://eymm.gib.gov.tr/apigateway/ymm/karsit-cevap-yazisi/gelen-ve-cevap-verilen-listele",
 };
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const HEADERS = {
     Accept: "application/json, text/plain, */*",
@@ -86,7 +89,9 @@ async function sendTelegramMessage(text) {
 
 async function processCompany(company) {
     let attempts = 0;
-    const maxAttempts = 6;
+    let rateLimitAttempts = 0;
+    const maxAttempts = 10;
+    const maxRateLimitAttempts = 10;
     const resultData = {
         sirket: company.SIRKET_ADI,
         tebligat: 0,
@@ -97,9 +102,9 @@ async function processCompany(company) {
 
     console.log(`\n🏢 [${company.SIRKET_ADI}] İşleniyor...`);
 
-    while (attempts < maxAttempts) {
-        attempts++;
+    while (attempts < maxAttempts && rateLimitAttempts < maxRateLimitAttempts) {
         try {
+            attempts++;
             const captchaRes = await client.get(GIB_URLS.CAPTCHA, {
                 headers: HEADERS,
             });
@@ -206,6 +211,14 @@ async function processCompany(company) {
                 console.log("Hata Detayı:", JSON.stringify(err.response.data));
             }
 
+            if (err.response && err.response.status === 429) {
+                rateLimitAttempts++;
+                console.log(`⚠️ Rate Limit aşıldı (${rateLimitAttempts}/${maxRateLimitAttempts}), 30 saniye bekleniyor...`);
+                await sleep(30000);
+                attempts--; // Rate limit durumunda gerçek deneme sayısını azaltma (tekrar denesin)
+                continue;
+            }
+
             if (err.response && err.response.status === 400) {
                 continue;
             }
@@ -217,14 +230,27 @@ async function processCompany(company) {
 }
 
 async function main() {
-    const companies = JSON.parse(
-        fs.readFileSync(path.join(__dirname, "companies.json"), "utf8"),
-    );
+    // Excel dosyasından şirketleri oku
+    const workbook = XLSX.readFile(path.join(__dirname, "DVD.xlsx"));
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+    // Veriyi temizle ve map'le
+    const companies = rawData.map(row => ({
+        SIRKET_ADI: (row['UNVANI'] || 'Bilinmeyen Şirket').toString().trim(),
+        USERID: (row['KULL.KODU'] || '').toString().replace(/\s/g, ''),
+        SIFRE: (row['ŞİFRE'] || '').toString().trim()
+    })).filter(c => c.USERID && c.SIFRE);
+
+    console.log(`\n📊 Toplam ${companies.length} şirket Excel'den yüklendi.`);
+
     const reports = [];
 
     for (const company of companies) {
         reports.push(await processCompany(company));
         await jar.removeAllCookies();
+        await sleep(3000); // 3 saniye bekle (Rate Limit engeli için)
     }
 
     // Mesaj Oluşturma
